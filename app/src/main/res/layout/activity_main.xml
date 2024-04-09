@@ -6,39 +6,23 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:apiKey="AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds"
-        android:enabled="true"
-        android:clickable="true"
+        android:layout_width="262dp"
+        android:layout_height="238dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Durak Noktaları -->
-    <ImageView
-        android:id="@+id/marker1"
+    <TextView
+        android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/ic_marker"
-        android:layout_marginLeft="100dp"
-        android:layout_marginTop="200dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageView
-        android:id="@+id/marker2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/ic_marker"
-        android:layout_marginLeft="300dp"
-        android:layout_marginTop="400dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:text="GOOGLE MAP"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/mapView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

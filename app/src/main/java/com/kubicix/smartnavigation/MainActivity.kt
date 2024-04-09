@@ -19,5 +19,7 @@ class MainActivity : AppCompatActivity() {
         val toastMessage = "Activity started!"
         Toast.makeText(this, toastMessage, Toast.LENGTH_SHORT).show()
         Log.i(TAG, toastMessage)
+
+
     }
 }
