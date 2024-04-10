@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +14,8 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 
 
@@ -32,6 +35,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var duraklar: MutableList<LatLng> // Durakları saklamak için değişken ekledik
 
     companion object {
         private const val REQUEST_LOCATION_PERMISSION = 1001
@@ -125,11 +129,111 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 val destination = extractCity(spokenText)
                 if (destination != null) {
                     binding.targetTextView.text = "Hedef: $destination"
+                    if (::duraklar.isInitialized) {
+                        navigateToNearestStop()
+                    } else {
+                        // duraklar listesi başlatılmamışsa uyarı ver
+                        Toast.makeText(this, "Duraklar listesi henüz başlatılmadı", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
+
+    @SuppressLint("MissingPermission")
+    private fun navigateToNearestStop() {
+        // Konum izinlerini kontrol et
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // Konum izinleri yoksa, izin iste
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                REQUEST_LOCATION_PERMISSION
+            )
+            return
+        }
+
+        // Duraklar listesi henüz başlatılmadıysa uyarı ver ve işlemi sonlandır
+        if (!::duraklar.isInitialized) {
+            Toast.makeText(this, "Duraklar listesi henüz başlatılmadı", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Konum yöneticisini oluştur
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+        try {
+            // Son bilinen konumu al
+            val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+
+            // Konumu kontrol et ve kullan
+            if (location != null) {
+                // Konumu direkt olarak kullanabiliriz
+                val userLocation = location
+
+                var nearestStop: LatLng? = null
+                var shortestDistance = Double.MAX_VALUE
+
+                // Tüm durakları dolaşarak en yakın olanı bul
+                for (durak in duraklar) {
+                    val distance = calculateDistance(userLocation, durak)
+                    if (distance < shortestDistance) {
+                        shortestDistance = distance
+                        nearestStop = durak
+                    }
+                }
+
+                nearestStop?.let { destination ->
+                    // En yakın durak bulundu, navigasyon başlat
+                    showNavigationDialog(destination)
+                }
+            } else {
+                // Konum bilgisi yoksa, kullanıcıya bir hata mesajı gösterilebilir
+                Toast.makeText(this, "Konum bilgisi alınamadı", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: SecurityException) {
+            // Konum bilgisi alırken bir hata oluşursa
+            Toast.makeText(this, "Konum bilgisi alınamadı: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
+        }
+    }
+
+
+
+
+    private fun calculateDistance(userLocation: Location, destination: LatLng): Double {
+        try {
+            val results = FloatArray(1)
+            Location.distanceBetween(
+                userLocation.latitude, userLocation.longitude,
+                destination.latitude, destination.longitude,
+                results
+            )
+            return results[0].toDouble()
+        } catch (e: Exception) {
+            // Hata durumunda logları kaydet
+            Log.e("CalculateDistance", "Distance calculation error: ${e.message}")
+            // Hata durumunda 0.0 döndür
+            return 0.0
+        }
+    }
+
+
+
+
+
+
 
     @SuppressLint("MissingPermission")
     override fun onMapReady(googleMap: GoogleMap) {
@@ -167,7 +271,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             LatLng(0.0, 0.0) // Varsayılan olarak (0, 0) konumu kullanıldı
         }
 
-
         // Mevcut konumu işaretle
         val userMarker = MarkerOptions()
             .position(userLocation)
@@ -176,7 +279,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         mMap.addMarker(userMarker)
 
         // Mevcut konumu merkez olarak kullanarak 10 farklı durak konumu belirleme
-        val duraklar = mutableListOf<LatLng>()
+        duraklar = mutableListOf() // duraklar listesini başlat
         val radius = 0.01 // Yaklaşık olarak 1 kilometrelik bir yarıçap
         val random = Random()
 
