@@ -111,15 +111,52 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     }
 
     private fun extractCity(spokenText: String): String? {
-        val citiesAndDistricts = listOf("sakarya", "istanbul", "kocaeli", "adapazarı", "izmit", "derince", "umuttepe", "düzce", "bursa", "yalova")
+        val citiesAndDistricts = listOf(
+            // Kocaeli Üniversitesi fakülte ve kampüs isimleri
+            "kocaeli üniversitesi teknoloji fakültesi",
+            "kocaeli üniversitesi mühendislik fakültesi",
+            "kocaeli üniversitesi sağlık bilimleri fakültesi",
+            "kocaeli üniversitesi iktisat fakültesi",
+            "kocaeli üniversitesi fen edebiyat fakültesi",
+            "kocaeli üniversitesi hukuk fakültesi",
+            "kocaeli üniversitesi işletme fakültesi",
+            "kocaeli üniversitesi tıp fakültesi",
+            "kocaeli üniversitesi ahmet keleşoğlu eğitim fakültesi",
+            "kocaeli üniversitesi çenesuyu kampüsü",
+            "kocaeli üniversitesi gölcük uygulama oteli",
+            "kocaeli üniversitesi kandıra uygulama kampüsü",
+            // Diğer şehir ve ilçeler
+            "sakarya", "istanbul", "kocaeli", "adapazarı", "izmit",
+            "derince", "umuttepe", "düzce", "bursa", "yalova",
+            // Kocaeli ve çevresindeki diğer ilçeler ve iller
+            "gebze", "çayırova", "darıca", "dilovası", "kandıra",
+            // İstanbul ve Sakarya için diğer ilçeler ve iller
+            "pendik", "kadıköy", "üsküdar", "sarıyer", "şile",
+            "adalar", "teşvikiye", "sakarya merkez", "serdivan", "hendek",
+            // Kocaeli'nin sahil ilçeleri
+            "kerpe", "kandıra", "karamürsel", "başiskele"
+        )
         val spokenWords = spokenText.toLowerCase(Locale.getDefault())
 
+        // İlk olarak fakülte ve kampüs isimlerini kontrol et
+        val foundUniversity = citiesAndDistricts.find { location ->
+            spokenWords.contains(location)
+        }
+
+        // Eğer fakülte veya kampüs ismi bulunursa, onu dön
+        if (foundUniversity != null) {
+            return foundUniversity
+        }
+
+        // Bulunamazsa diğer şehir ve ilçe isimlerine bak
         val foundCity = citiesAndDistricts.find { city ->
             spokenWords.contains(city)
         }
 
         return foundCity
     }
+
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_SPEECH_RECOGNIZER && resultCode == Activity.RESULT_OK) {
@@ -278,7 +315,43 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
         mMap.addMarker(userMarker)
 
+        /* durak koordinatları bulunduktan sonra onları ekleyecek kod parçası
+        // Durakların koordinatları
+        val durakKoordinatlari = listOf(
+            Pair(40.822583, 29.810823),
+            Pair(40.822367, 29.810067),
+            Pair(40.820559, 29.806401),
+            Pair(40.819794, 29.805169),
+            Pair(40.819122, 29.804325),
+            Pair(40.818235, 29.803148),
+            Pair(40.817903, 29.802289),
+            Pair(40.817439, 29.801303),
+            Pair(40.816981, 29.800312),
+            Pair(40.816527, 29.799335),
+            Pair(40.816071, 29.798359),
+            Pair(40.815611, 29.797381),
+            Pair(40.815152, 29.796404),
+            Pair(40.814696, 29.795426),
+            Pair(40.814238, 29.794449),
+            Pair(40.813779, 29.793472),
+            Pair(40.813322, 29.792494),
+            Pair(40.812864, 29.791517),
+            Pair(40.812407, 29.790539),
+            Pair(40.811949, 29.789562)
+        )
+
+// Durakları ekleyeceğimiz listeyi başlat
+        val duraklar = mutableListOf<LatLng>()
+
+// Koordinatları kullanarak durakları ekleme
+        for ((lat, lng) in durakKoordinatlari) {
+            val durak = LatLng(lat, lng)
+            duraklar.add(durak)
+        } */
+
+
         // Mevcut konumu merkez olarak kullanarak 10 farklı durak konumu belirleme
+        // daha sonra durak konumları bulunması halinde eklenecek
         duraklar = mutableListOf() // duraklar listesini başlat
         val radius = 0.01 // Yaklaşık olarak 1 kilometrelik bir yarıçap
         val random = Random()
