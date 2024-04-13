@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
+import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -26,6 +27,11 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.kubicix.smartnavigation.databinding.ActivityMapsBinding
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
@@ -233,7 +239,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                     // En yakın durak bulundu, rotayı çiz
                     drawRoute(userLat, destination)
                     // Navigasyonu başlat
-                    //showNavigationDialog(destination)
+                    showNavigationDialog(destination)
                 }
             } else {
                 // Konum bilgisi yoksa, kullanıcıya bir hata mesajı gösterilebilir
@@ -386,23 +392,120 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     }
 
     private fun drawRoute(startPoint: LatLng, endPoint: LatLng) {
-        // Başlangıç ve bitiş noktalarını işaretlemek için MarkerOptions oluştur
-        val startMarkerOptions = MarkerOptions().position(startPoint).title("Başlangıç Noktası").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-        val endMarkerOptions = MarkerOptions().position(endPoint).title("Bitiş Noktası").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        // Haritadaki mevcut polyline'leri temizle
+        mMap.clear()
 
-        // Haritaya işaretçileri (marker) ekleyerek başlangıç ve bitiş noktalarını göster
-        mMap.addMarker(startMarkerOptions)
-        mMap.addMarker(endMarkerOptions)
+        // Toast mesajları ekle
+        Toast.makeText(applicationContext, "Yol bulma isteği oluşturuluyor...", Toast.LENGTH_SHORT).show()
 
-        // Rotayı çizmek için bir PolylineOptions oluştur
-        val polylineOptions = PolylineOptions()
-            .add(startPoint) // Başlangıç noktasını ekle
-            .add(endPoint)   // Varış noktasını ekle
-            .color(Color.GREEN) // Rota rengini belirle
-            .width(10f)       // Rota kalınlığını belirle
+        // Yol bulma isteği oluştur
+        val url = getDirectionsUrl(startPoint, endPoint)
 
-        // Haritaya Polyline ekleyerek rotayı çiz
-        mMap.addPolyline(polylineOptions)
+        // Yol bulma isteğini başlat
+        val downloadTask = DownloadTask()
+        downloadTask.execute(url)
+    }
+
+
+    private fun getDirectionsUrl(startPoint: LatLng, endPoint: LatLng): String {
+        // Yol bulma isteğinin URL'sini oluştur
+        val origin = "origin=" + startPoint.latitude + "," + startPoint.longitude
+        val dest = "destination=" + endPoint.latitude + "," + endPoint.longitude
+        val sensor = "sensor=false"
+        val mode = "mode=walking" // If you want walking directions, change to "mode=walking"
+        val parameters = "$origin&$dest&$sensor&$mode"
+        val output = "json"
+        val apiKey = "AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds" // Replace with your actual API key
+        return "https://maps.googleapis.com/maps/api/directions/$output?$parameters&key=$apiKey"
+    }
+
+    private inner class DownloadTask : AsyncTask<String, Void, String>() {
+
+        override fun doInBackground(vararg urls: String): String {
+            val url = urls[0]
+            val result = StringBuilder()
+            val connection: HttpURLConnection
+            try {
+                val url = URL(url)
+                connection = url.openConnection() as HttpURLConnection
+                connection.connect()
+
+                // Yanıtı oku
+                val inputStream = connection.inputStream
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    result.append(line)
+                }
+
+                reader.close()
+                inputStream.close()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return result.toString()
+        }
+
+        override fun onPostExecute(result: String) {
+            super.onPostExecute(result)
+            Log.d("DownloadTask", "Yol bulma isteği tamamlandı, sonuç: $result")
+            // ParserTask'ı ana iş parçacığından çağır
+            val parserTask = ParserTask()
+            parserTask.execute(result)
+        }
+    }
+
+
+
+    private inner class ParserTask : AsyncTask<String, Int, List<LatLng>>() {
+
+        override fun doInBackground(vararg jsonData: String): List<LatLng> {
+            val routes: List<List<HashMap<String, String>>>
+            val path: ArrayList<LatLng> = ArrayList()
+            try {
+                val jsonObject = JSONObject(jsonData[0])
+                val parser = DirectionsJSONParser()
+                routes = parser.parse(jsonObject)
+                for (i in routes.indices) {
+                    val points: List<HashMap<String, String>> = routes[i]
+                    for (j in points.indices) {
+                        val point = points[j]
+                        val lat = point["lat"]!!.toDouble()
+                        val lng = point["lng"]!!.toDouble()
+                        val position = LatLng(lat, lng)
+                        path.add(position)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            Log.d("ParserTask", "doInBackground çalıştı ve path boyutu: ${path.size}")
+
+            return path
+        }
+
+
+        override fun onPostExecute(result: List<LatLng>?) {
+            super.onPostExecute(result)
+            if (result != null) {
+                // Rotayı çizmek için bir PolylineOptions oluştur
+                val polylineOptions = PolylineOptions()
+                    .addAll(result) // Yol noktalarını ekle
+                    .color(Color.BLUE) // Rota rengini belirle
+                    .width(10f)       // Rota kalınlığını belirle
+
+                // Haritaya Polyline ekleyerek rotayı çiz
+                mMap.addPolyline(polylineOptions)
+
+                // Toast mesajı ekle
+                Toast.makeText(applicationContext, "Rota çizildi.", Toast.LENGTH_SHORT).show()
+            } else {
+                // Toast mesajı ekle
+                Toast.makeText(applicationContext, "Rota çizilemedi.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     }
 
 
