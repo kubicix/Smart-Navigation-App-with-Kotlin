@@ -391,9 +391,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         return false
     }
 
+    // Polyline'leri saklamak için liste
+    private val polylineList: MutableList<Polyline> = mutableListOf()
+
+    // Google Directions API ile konum rotası oluşturma fonksyinu
     private fun drawRoute(startPoint: LatLng, endPoint: LatLng) {
-        // Haritadaki mevcut polyline'leri temizle
-        mMap.clear()
+        // Önceki polylineları temizleyen fonks
+        clearPolylines()
 
         // Toast mesajları ekle
         Toast.makeText(applicationContext, "Yol bulma isteği oluşturuluyor...", Toast.LENGTH_SHORT).show()
@@ -404,6 +408,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         // Yol bulma isteğini başlat
         val downloadTask = DownloadTask()
         downloadTask.execute(url)
+    }
+
+    // Tüm polyline'leri temizler
+    private fun clearPolylines() {
+        for (polyline in polylineList) {
+            polyline.remove()
+        }
+        polylineList.clear()
     }
 
 
@@ -496,7 +508,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                     .width(10f)       // Rota kalınlığını belirle
 
                 // Haritaya Polyline ekleyerek rotayı çiz
-                mMap.addPolyline(polylineOptions)
+                val polyline = mMap.addPolyline(polylineOptions)
+
+                // Oluşturulan polyline'ı listeye ekle
+                polylineList.add(polyline)
 
                 // Toast mesajı ekle
                 Toast.makeText(applicationContext, "Rota çizildi.", Toast.LENGTH_SHORT).show()
