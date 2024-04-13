@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
@@ -23,10 +24,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
 import com.kubicix.smartnavigation.databinding.ActivityMapsBinding
 import java.util.*
 
@@ -230,10 +228,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                         nearestStop = durak
                     }
                 }
-
+                val userLat = LatLng(location.latitude, location.longitude)
                 nearestStop?.let { destination ->
-                    // En yakın durak bulundu, navigasyon başlat
-                    showNavigationDialog(destination)
+                    // En yakın durak bulundu, rotayı çiz
+                    drawRoute(userLat, destination)
+                    // Navigasyonu başlat
+                    //showNavigationDialog(destination)
                 }
             } else {
                 // Konum bilgisi yoksa, kullanıcıya bir hata mesajı gösterilebilir
@@ -384,6 +384,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
         return false
     }
+
+    private fun drawRoute(startPoint: LatLng, endPoint: LatLng) {
+        // Başlangıç ve bitiş noktalarını işaretlemek için MarkerOptions oluştur
+        val startMarkerOptions = MarkerOptions().position(startPoint).title("Başlangıç Noktası").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        val endMarkerOptions = MarkerOptions().position(endPoint).title("Bitiş Noktası").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+
+        // Haritaya işaretçileri (marker) ekleyerek başlangıç ve bitiş noktalarını göster
+        mMap.addMarker(startMarkerOptions)
+        mMap.addMarker(endMarkerOptions)
+
+        // Rotayı çizmek için bir PolylineOptions oluştur
+        val polylineOptions = PolylineOptions()
+            .add(startPoint) // Başlangıç noktasını ekle
+            .add(endPoint)   // Varış noktasını ekle
+            .color(Color.GREEN) // Rota rengini belirle
+            .width(10f)       // Rota kalınlığını belirle
+
+        // Haritaya Polyline ekleyerek rotayı çiz
+        mMap.addPolyline(polylineOptions)
+    }
+
+
+
+
 
     private fun showNavigationDialog(destination: LatLng) {
         // Kullanıcıya hangi navigasyon uygulamasını kullanmak istediğini sormalı ve o uygulamayı başlatmalıyız
