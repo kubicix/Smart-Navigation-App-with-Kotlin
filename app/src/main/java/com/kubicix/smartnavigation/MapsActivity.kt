@@ -13,6 +13,8 @@ import android.net.Uri
 import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -528,13 +530,31 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     private lateinit var tts: TextToSpeech
 
     private fun provideNavigationInstructions(routePoints: List<LatLng>) {
+        // Yol tariflerini depolamak için bir liste oluştur
+        val instructions = mutableListOf<String>()
+
+        // Tüm rota noktaları boyunca döngü yap
         for (i in 0 until routePoints.size - 1) {
             val startPoint = routePoints[i]
             val endPoint = routePoints[i + 1]
 
+            // Başlangıç ve bitiş noktaları arasındaki açı ve mesafeyi hesapla
             val (angle, distance) = calculateAngleAndDistance(startPoint, endPoint)
+
+            // Açı ve mesafeye göre yönergeyi oluştur
             val instruction = createInstruction(angle, distance)
-            speakInstruction(instruction)
+
+            // Yönergeyi listeye ekle
+            instructions.add(instruction)
+        }
+
+        // Tüm yönergeleri sesli olarak oku
+        instructions.forEachIndexed { index, instruction ->
+            // Tüm yönergelerin ardışık bir şekilde sesli olarak okunması için gecikme ekleyelim
+            val delay = index * 3000L // Her bir yönerge arasında 3 saniyelik bir gecikme ekleyelim
+            Handler(Looper.getMainLooper()).postDelayed({
+                speakInstruction(instruction)
+            }, delay)
         }
     }
 
@@ -551,8 +571,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         val x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng)
         val angle = Math.toDegrees(Math.atan2(y, x))
 
-        val startPoint=convertLatLngToLocation(startPoint)
         // Mesafeyi hesapla
+        val startPoint = convertLatLngToLocation(startPoint)
         val distance = calculateDistance(startPoint, endPoint)
 
         return Pair(angle, distance)
@@ -560,10 +580,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
     private fun createInstruction(angle: Double, distance: Double): String {
         return when {
-            angle > -45 && angle < 45 -> "İleri git ve yaklaşık ${distance.toInt()} metre ilerle."
-            angle <= -45 -> "Sol tarafa dön ve yaklaşık ${distance.toInt()} metre ilerle."
-            angle >= 45 -> "Sağ tarafa dön ve yaklaşık ${distance.toInt()} metre ilerle."
-            else -> "Hedefe ilerle ve yaklaşık ${distance.toInt()} metre ilerle."
+            angle > -45 && angle < 45 -> "Yaklaşık ${distance.toInt()} metre ilerleyin."
+            angle <= -45 -> "Sol tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
+            angle >= 45 -> "Sağ tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
+            else -> "Hedefe ilerleyin ve yaklaşık ${distance.toInt()} metre ilerleyin."
         }
     }
 
@@ -582,7 +602,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
     }
 
+    private fun convertLatLngToLocation(latLng: LatLng): Location {
+        val location = Location("provider")
+        location.latitude = latLng.latitude
+        location.longitude = latLng.longitude
+        return location
+    }
 
+    //googlemapse yönlendirme kodu eğer kabul edilirse kullanılacak
     private fun showNavigationDialog(destination: LatLng) {
         // Kullanıcıya hangi navigasyon uygulamasını kullanmak istediğini sormalı ve o uygulamayı başlatmalıyız
         val navigationIntentUri = Uri.parse("google.navigation:mode=w&q=${destination.latitude},${destination.longitude}")
@@ -591,12 +618,5 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         startActivity(mapIntent)
     }
 
-    private fun convertLatLngToLocation(latLng: LatLng): Location {
-        val location = Location("provider")
-        location.latitude = latLng.latitude
-        location.longitude = latLng.longitude
-        return location
-    }
+
 }
-
-
