@@ -4,10 +4,11 @@ SmartNavigation is a mobile application developed to assist visually impaired in
 
 ## Features ✨
 
-- **Speech Recognition:** Users can input their destination verbally using speech recognition technology.
-- **Google Maps Integration:** The application utilizes Google Maps API to display the user's current location and provide navigation to the nearest bus stop.
-- **Navigation:** Turn-by-turn directions are provided to guide users to their desired bus stop.
-- **Accessibility:** Designed with visually impaired users in mind, the app aims to improve accessibility for all individuals.
+- **Speech Recognition: 🎤** Users can input their destination verbally using speech recognition technology.
+- **Google Maps Integration: 🗺️** The application utilizes Google Maps API to display the user's current location and provide navigation to the nearest bus stop.
+- **Navigation: 🚶‍♂** Turn-by-turn directions are provided to guide users to their desired bus stop.
+- **Accessibility: 👨‍🦯** Designed with visually impaired users in mind, the app aims to improve accessibility for all individuals.
+- **Street-level route drawing: 🛣️** Utilizing the Google Directions API, the application calculates the route between the user's specified start and end points, following the streets, and draws this route as a polyline on the map.
 
 ## How It Works 🚀
 
