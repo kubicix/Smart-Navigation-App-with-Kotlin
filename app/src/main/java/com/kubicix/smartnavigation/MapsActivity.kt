@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -239,7 +240,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                     // En yakın durak bulundu, rotayı çiz
                     drawRoute(userLat, destination)
                     // Navigasyonu başlat
-                    showNavigationDialog(destination)
+                    //showNavigationDialog(destination)
                 }
             } else {
                 // Konum bilgisi yoksa, kullanıcıya bir hata mesajı gösterilebilir
@@ -498,6 +499,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
 
+        // ParserTask sınıfında onPostExecute metodu içinde
         override fun onPostExecute(result: List<LatLng>?) {
             super.onPostExecute(result)
             if (result != null) {
@@ -513,8 +515,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 // Oluşturulan polyline'ı listeye ekle
                 polylineList.add(polyline)
 
-                // Toast mesajı ekle
-                Toast.makeText(applicationContext, "Rota çizildi.", Toast.LENGTH_SHORT).show()
+                // Yolu takip etmek için sesli yönlendirme talimatlarını sağla
+                provideNavigationInstructions(result)
             } else {
                 // Toast mesajı ekle
                 Toast.makeText(applicationContext, "Rota çizilemedi.", Toast.LENGTH_SHORT).show()
@@ -522,9 +524,63 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
     }
+    // Sınıf düzeyinde TextToSpeech nesnesini tanımlayın
+    private lateinit var tts: TextToSpeech
+
+    private fun provideNavigationInstructions(routePoints: List<LatLng>) {
+        for (i in 0 until routePoints.size - 1) {
+            val startPoint = routePoints[i]
+            val endPoint = routePoints[i + 1]
+
+            val (angle, distance) = calculateAngleAndDistance(startPoint, endPoint)
+            val instruction = createInstruction(angle, distance)
+            speakInstruction(instruction)
+        }
+    }
+
+
+    private fun calculateAngleAndDistance(startPoint: LatLng, endPoint: LatLng): Pair<Double, Double> {
+        val startLat = Math.toRadians(startPoint.latitude)
+        val startLng = Math.toRadians(startPoint.longitude)
+        val endLat = Math.toRadians(endPoint.latitude)
+        val endLng = Math.toRadians(endPoint.longitude)
+
+        // Açıyı hesapla
+        val dLng = endLng - startLng
+        val y = Math.sin(dLng) * Math.cos(endLat)
+        val x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng)
+        val angle = Math.toDegrees(Math.atan2(y, x))
+
+        val startPoint=convertLatLngToLocation(startPoint)
+        // Mesafeyi hesapla
+        val distance = calculateDistance(startPoint, endPoint)
+
+        return Pair(angle, distance)
+    }
+
+    private fun createInstruction(angle: Double, distance: Double): String {
+        return when {
+            angle > -45 && angle < 45 -> "İleri git ve yaklaşık ${distance.toInt()} metre ilerle."
+            angle <= -45 -> "Sol tarafa dön ve yaklaşık ${distance.toInt()} metre ilerle."
+            angle >= 45 -> "Sağ tarafa dön ve yaklaşık ${distance.toInt()} metre ilerle."
+            else -> "Hedefe ilerle ve yaklaşık ${distance.toInt()} metre ilerle."
+        }
+    }
 
 
 
+    // Metin okuma (TextToSpeech) özelliğini kullanarak sesli yönlendirme sağlama
+    private fun speakInstruction(instruction: String) {
+        // Metin okuma motorunu başlat
+        tts = TextToSpeech(applicationContext) { status ->
+            if (status != TextToSpeech.ERROR) {
+                // Dil ayarını yap
+                tts.language = Locale.getDefault()
+                // Metni oku
+                tts.speak(instruction, TextToSpeech.QUEUE_FLUSH, null, null)
+            }
+        }
+    }
 
 
     private fun showNavigationDialog(destination: LatLng) {
@@ -533,6 +589,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         val mapIntent = Intent(Intent.ACTION_VIEW, navigationIntentUri)
         mapIntent.setPackage("com.google.android.apps.maps") // Google Haritalar uygulamasını belirtmek için
         startActivity(mapIntent)
+    }
+
+    private fun convertLatLngToLocation(latLng: LatLng): Location {
+        val location = Location("provider")
+        location.latitude = latLng.latitude
+        location.longitude = latLng.longitude
+        return location
     }
 }
 
