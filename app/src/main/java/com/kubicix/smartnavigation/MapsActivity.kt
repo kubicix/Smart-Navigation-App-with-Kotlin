@@ -30,6 +30,7 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.kubicix.smartnavigation.databinding.ActivityMapsBinding
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -40,6 +41,8 @@ import java.util.*
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
 
     private lateinit var mMap: GoogleMap
+    private lateinit var baslangic: LatLng
+    private lateinit var bitis: LatLng
     private lateinit var binding: ActivityMapsBinding
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var duraklar: MutableList<LatLng> // Durakları saklamak için değişken ekledik
@@ -225,7 +228,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             if (location != null) {
                 // Konumu direkt olarak kullanabiliriz
                 val userLocation = location
-
+                baslangic=convertLocationToLatLng(userLocation)
                 var nearestStop: LatLng? = null
                 var shortestDistance = Double.MAX_VALUE
 
@@ -236,6 +239,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                         shortestDistance = distance
                         nearestStop = durak
                     }
+                }
+                if (nearestStop != null) {
+                    bitis=nearestStop
                 }
                 val userLat = LatLng(location.latitude, location.longitude)
                 nearestStop?.let { destination ->
@@ -431,7 +437,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         val parameters = "$origin&$dest&$sensor&$mode"
         val output = "json"
         val apiKey = "AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds" // Replace with your actual API key
-        return "https://maps.googleapis.com/maps/api/directions/$output?$parameters&key=$apiKey"
+        return "https://maps.googleapis.com/maps/api/directions/$output?$parameters&language=tr&key=$apiKey"
     }
 
     private inner class DownloadTask : AsyncTask<String, Void, String>() {
@@ -480,7 +486,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             try {
                 val jsonObject = JSONObject(jsonData[0])
                 val parser = DirectionsJSONParser()
-                routes = parser.parse(jsonObject)
+                val (routes, maneuvers) = parser.parse(jsonObject)
                 for (i in routes.indices) {
                     val points: List<HashMap<String, String>> = routes[i]
                     for (j in points.indices) {
@@ -489,6 +495,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                         val lng = point["lng"]!!.toDouble()
                         val position = LatLng(lat, lng)
                         path.add(position)
+                    }
+                }
+                // TextToSpeech nesnesini oluştur ve sesli yönlendirmeyi başlat
+                tts = TextToSpeech(applicationContext) { status ->
+                    if (status != TextToSpeech.ERROR) {
+                        // Manevraları sesli olarak söyle
+                        for (maneuver in maneuvers) {
+                            tts.speak(maneuver, TextToSpeech.QUEUE_ADD, null, null)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -517,8 +532,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 // Oluşturulan polyline'ı listeye ekle
                 polylineList.add(polyline)
 
+                //Toast.makeText(applicationContext, "Başlangıç: $baslangic, Bitiş: $bitis", Toast.LENGTH_SHORT).show()
                 // Yolu takip etmek için sesli yönlendirme talimatlarını sağla
-                provideNavigationInstructions(result)
+                val dirurl = getManeuversUrl(baslangic, bitis)
+
             } else {
                 // Toast mesajı ekle
                 Toast.makeText(applicationContext, "Rota çizilemedi.", Toast.LENGTH_SHORT).show()
@@ -526,6 +543,109 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
     }
+
+
+    private fun getManeuversUrl(startPoint: LatLng, endPoint: LatLng): String {
+        // Yol bulma isteğinin URL'sini oluştur
+        val origin = "origin=${startPoint.latitude},${startPoint.longitude}"
+        val destination = "destination=${endPoint.latitude},${endPoint.longitude}"
+        val apiKey = "key=AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds" // API anahtarınızı buraya ekleyin
+
+        return "https://maps.googleapis.com/maps/api/directions/json?$origin&$destination&$apiKey"
+    }
+
+
+    fun extractManeuversFromDirections(context: Context, directionsUrl: String): Array<String> {
+        // Directions URL'sini kullanarak veriyi indir
+        val directionData = downloadUrl(directionsUrl)
+        val maneuvers = mutableListOf<String>()
+
+        if (directionData.isNotEmpty()) {
+            // Veri başarıyla indirildiyse
+            try {
+                val jsonObject = JSONObject(directionData)
+                val routesArray = jsonObject.getJSONArray("routes")
+                if (routesArray.length() > 0) {
+                    val routeObject = routesArray.getJSONObject(0)
+                    val legsArray = routeObject.getJSONArray("legs")
+                    if (legsArray.length() > 0) {
+                        val legObject = legsArray.getJSONObject(0)
+                        val stepsArray = legObject.getJSONArray("steps")
+
+                        for (i in 0 until stepsArray.length()) {
+                            val stepObject = stepsArray.getJSONObject(i)
+                            val maneuver = stepObject.optString("maneuver")
+                            if (maneuver.isNotEmpty()) {
+                                maneuvers.add(maneuver)
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Legs bulunamadı.", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, "Rota bulunamadı.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: JSONException) {
+                e.printStackTrace()
+                Toast.makeText(context, "JSON parsing hatası: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Toast.makeText(context, "Veri indirilemedi.", Toast.LENGTH_SHORT).show()
+        }
+
+        // Manevraları diziye dön
+        return maneuvers.toTypedArray()
+    }
+
+    fun downloadUrl(directionsUrl: String): String {
+        val result = StringBuilder()
+        var connection: HttpURLConnection? = null
+        try {
+            val url = URL(directionsUrl)
+            connection = url.openConnection() as HttpURLConnection
+            val reader = BufferedReader(InputStreamReader(connection.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                result.append(line)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            connection?.disconnect()
+        }
+        return result.toString()
+    }
+
+
+
+    private fun textToSpeech(maneuvers: Array<String>) {
+        // TextToSpeech nesnesini oluştur
+        val tts = TextToSpeech(applicationContext) { status ->
+            if (status != TextToSpeech.ERROR) {
+                // Dil ayarını yap (opsiyonel)
+                tts.language = Locale.getDefault()
+
+                // Manevraları sesli olarak söyle
+                for (maneuver in maneuvers) {
+                    tts.speak(maneuver, TextToSpeech.QUEUE_ADD, null, null)
+                    // QUEUE_ADD: Sıraya ekler ve mevcut konuşmayı beklemez.
+                }
+            }
+        }
+    }
+
+    fun manevralarıToastlaYazdir(manevralar: Array<String>, context: Context) {
+        val message = if (manevralar.isEmpty()) {
+            "Manevralar bulunamadı."
+        } else {
+            "Manevralar bulundu."
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
+
+
+
+
     // Sınıf düzeyinde TextToSpeech nesnesini tanımlayın
     private lateinit var tts: TextToSpeech
 
@@ -553,7 +673,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             // Tüm yönergelerin ardışık bir şekilde sesli olarak okunması için gecikme ekleyelim
             val delay = index * 3000L // Her bir yönerge arasında 3 saniyelik bir gecikme ekleyelim
             Handler(Looper.getMainLooper()).postDelayed({
-                speakInstruction(instruction)
+
             }, delay)
         }
     }
@@ -579,10 +699,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     }
 
     private fun createInstruction(angle: Double, distance: Double): String {
+        if (distance == 0.0) {
+            return "İlerleyin."
+        }
+
         return when {
-            angle > -45 && angle < 45 -> "Yaklaşık ${distance.toInt()} metre ilerleyin."
-            angle <= -45 -> "Sol tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
-            angle >= 45 -> "Sağ tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
+            angle in -45.0..45.0 -> "Yaklaşık ${distance.toInt()} metre ilerleyin."
+            angle < -45 -> "Sol tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
+            angle > 45 -> "Sağ tarafa dönün ve yaklaşık ${distance.toInt()} metre ilerleyin."
             else -> "Hedefe ilerleyin ve yaklaşık ${distance.toInt()} metre ilerleyin."
         }
     }
@@ -608,6 +732,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         location.longitude = latLng.longitude
         return location
     }
+
+    private fun convertLocationToLatLng(location: Location): LatLng {
+        return LatLng(location.latitude, location.longitude)
+    }
+
 
     //googlemapse yönlendirme kodu eğer kabul edilirse kullanılacak
     private fun showNavigationDialog(destination: LatLng) {

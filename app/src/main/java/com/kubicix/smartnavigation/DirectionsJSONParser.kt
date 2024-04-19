@@ -1,12 +1,14 @@
 package com.kubicix.smartnavigation
 
 import com.google.android.gms.maps.model.LatLng
+import org.json.JSONException
 import org.json.JSONObject
 
 class DirectionsJSONParser {
 
-    fun parse(jsonObject: JSONObject): List<List<HashMap<String, String>>> {
+    fun parse(jsonObject: JSONObject): Pair<List<List<HashMap<String, String>>>, List<String>> {
         val routes: MutableList<List<HashMap<String, String>>> = ArrayList()
+        val maneuvers: MutableList<String> = ArrayList()
 
         val routesArray = jsonObject.getJSONArray("routes")
         for (i in 0 until routesArray.length()) {
@@ -30,12 +32,50 @@ class DirectionsJSONParser {
                         position["lng"] = decodedPoints[l].longitude.toString()
                         path.add(position)
                     }
+
+                    // Manevraları al ve listeye ekle
+                    val maneuver = step.optString("html_instructions")
+                    if (maneuver.isNotEmpty()) {
+                        val cleanManeuver = maneuver.replace(Regex("<[^>]*>"), "") // HTML etiketlerini kaldırır
+                        maneuvers.add(cleanManeuver)
+                    }
+
                 }
                 routes.add(path)
             }
         }
 
-        return routes
+        return Pair(routes, maneuvers)
+    }
+
+
+    fun parseManeuvers(jsonObject: JSONObject): List<String> {
+        val maneuvers: MutableList<String> = mutableListOf()
+
+        val routesArray = jsonObject.getJSONArray("routes")
+        for (i in 0 until routesArray.length()) {
+            val route = routesArray.getJSONObject(i)
+            val legs = route.getJSONArray("legs")
+            val path = ArrayList<HashMap<String, String>>()
+
+            for (j in 0 until legs.length()) {
+                val leg = legs.getJSONObject(j)
+                val steps = leg.getJSONArray("steps")
+
+                for (k in 0 until steps.length()) {
+                    val step = steps.getJSONObject(k)
+                    if (step.has("maneuver")) {
+                        val maneuver = step.getString("maneuver")
+                        maneuvers.add(maneuver)
+                    } else if (step.has("html_instructions")) {
+                        val maneuver = step.getString("html_instructions")
+                        maneuvers.add(maneuver)
+                    }
+                }
+            }
+        }
+
+        return maneuvers
     }
 
     private fun decodePoly(encoded: String): List<LatLng> {
@@ -71,4 +111,8 @@ class DirectionsJSONParser {
 
         return poly
     }
+
+
+
+
 }
