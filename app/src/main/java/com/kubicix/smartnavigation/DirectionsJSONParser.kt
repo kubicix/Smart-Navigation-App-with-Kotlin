@@ -35,10 +35,16 @@ class DirectionsJSONParser {
 
                     // Manevraları al ve listeye ekle
                     val maneuver = step.optString("html_instructions")
-                    if (maneuver.isNotEmpty()) {
+                    val distanceValue = step.optJSONObject("distance")?.optInt("value") // Adım mesafesini metre cinsinden al
+                    if (distanceValue != null && maneuver.isNotEmpty()) {
                         val cleanManeuver = maneuver.replace(Regex("<[^>]*>"), "") // HTML etiketlerini kaldırır
-                        maneuvers.add(cleanManeuver)
+                        val stepWithDistance = cleanManeuver.replace("ilerleyin", "") + " (ve $distanceValue metre ilerleyin)" // Adım mesafesini adım talimatına ekler
+                        maneuvers.add(stepWithDistance)
                     }
+
+
+
+
 
                 }
                 routes.add(path)

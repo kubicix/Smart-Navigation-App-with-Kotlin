@@ -10,11 +10,8 @@ import android.graphics.Color
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
-import android.os.AsyncTask
+import android.os.*
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -45,7 +42,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     private lateinit var bitis: LatLng
     private lateinit var binding: ActivityMapsBinding
     private lateinit var speechRecognizer: SpeechRecognizer
-    private lateinit var duraklar: MutableList<LatLng> // Durakları saklamak için değişken ekledik
+    private lateinit var duraklar: MutableList<LatLng>
+    private lateinit var tts: TextToSpeech
 
     companion object {
         private const val REQUEST_LOCATION_PERMISSION = 1001
@@ -144,7 +142,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             "pendik", "kadıköy", "üsküdar", "sarıyer", "şile",
             "adalar", "teşvikiye", "sakarya merkez", "serdivan", "hendek",
             // Kocaeli'nin sahil ilçeleri
-            "kerpe", "kandıra", "karamürsel", "başiskele"
+            "kerpe", "kandıra", "karamürsel", "başiskele","yuvacık",
+            // Özel kelimeler
+            "durak"
         )
         val spokenWords = spokenText.toLowerCase(Locale.getDefault())
 
@@ -168,26 +168,54 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
 
 
+    @SuppressLint("MissingPermission")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == REQUEST_SPEECH_RECOGNIZER && resultCode == Activity.RESULT_OK) {
-            val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            if (matches != null) {
-                val spokenText = matches[0]
-                val destination = extractCity(spokenText)
-                if (destination != null) {
-                    binding.targetTextView.text = "Hedef: $destination"
-                    if (::duraklar.isInitialized) {
-                        navigateToNearestStop()
+        if (requestCode == REQUEST_SPEECH_RECOGNIZER) {
+            if (resultCode == Activity.RESULT_OK) {
+                val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                if (matches != null) {
+                    val spokenText = matches[0]
+                    val destination = extractCity(spokenText)
+                    if (destination != null) {
+                        binding.targetTextView.text = "Hedef: $destination"
+                        if (::duraklar.isInitialized) {
+                            navigateToNearestStop()
+                        } else {
+                            // duraklar listesi başlatılmamışsa uyarı ver
+                            Toast.makeText(this, "Duraklar listesi henüz başlatılmadı", Toast.LENGTH_SHORT).show()
+                        }
                     } else {
-                        // duraklar listesi başlatılmamışsa uyarı ver
-                        Toast.makeText(this, "Duraklar listesi henüz başlatılmadı", Toast.LENGTH_SHORT).show()
+                        // Hedef belirlenemedi, telefonu titret
+                        // 2 titreme hedef bulunmadı demek
+                        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val pattern = longArrayOf(0, 500, 500, 500) // Titreşim deseni: başlangıç yok, 0.5 saniye titreşim, 0.5 saniye duraklama, bu işlemi 2 kez tekrar et
+                            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1, titreşim desenini sadece bir kez yineler
+                        } else {
+                            vibrator.vibrate(longArrayOf(0, 500, 500, 500), -1)
+                        }
+
                     }
                 }
+            }
+            else {
+                // Anlaşılamadı, tekrar söyleme isteği, telefonu titret
+                // 3 titreme sesli sohbetten çıkıldı demek
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val pattern = longArrayOf(0, 500, 500, 500, 500, 500) // Titreşim deseni: başlangıç yok, 0.5 saniye titreşim, 0.5 saniye duraklama, bu işlemi 3 kez tekrar et
+                    vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1, titreşim desenini sadece bir kez yineler
+                } else {
+                    vibrator.vibrate(longArrayOf(0, 500, 500, 500, 500, 500), -1)
+                }
+
             }
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+
+    private var navigateCounter = 0 // counter'ı başlat
     @SuppressLint("MissingPermission")
     private fun navigateToNearestStop() {
         // Konum izinlerini kontrol et
@@ -250,6 +278,16 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                     // Navigasyonu başlat
                     //showNavigationDialog(destination)
                 }
+
+                // Mevcut kullanıcı marker'ını sil
+                userMarker?.remove()
+
+                // Yeni kullanıcı marker'ını oluştur ve haritaya ekle
+                userMarker = mMap.addMarker(MarkerOptions()
+                    .position(userLat)
+                    .title("Mevcut Konum")
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon)))
+
             } else {
                 // Konum bilgisi yoksa, kullanıcıya bir hata mesajı gösterilebilir
                 Toast.makeText(this, "Konum bilgisi alınamadı", Toast.LENGTH_SHORT).show()
@@ -259,7 +297,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             Toast.makeText(this, "Konum bilgisi alınamadı: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
         }
+        navigateCounter++ // counter'ı artır
+
+        // Counter'ı toast olarak göster
+        //Toast.makeText(this, "Fonksiyon çağrıldı: $navigateCounter", Toast.LENGTH_SHORT).show()
     }
+
 
 
 
@@ -284,7 +327,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
 
 
-
+    private var userMarker: Marker? = null // Sınıf seviyesinde userMarker tanımlama
 
 
     @SuppressLint("MissingPermission")
@@ -324,49 +367,40 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
         // Mevcut konumu işaretle
-        val userMarker = MarkerOptions()
+        userMarker = mMap.addMarker(MarkerOptions()
             .position(userLocation)
             .title("Mevcut Konum")
-            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-        mMap.addMarker(userMarker)
+            .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon))) // İkonu arrow_icon drawable'ı olarak ayarla
 
-        /* durak koordinatları bulunduktan sonra onları ekleyecek kod parçası
-        // Durakların koordinatları
+
+        //durak koordinatları bulunduktan sonra onları ekleyecek kod parçası
+        // Durakların koordinatları, api ile alınabilir
         val durakKoordinatlari = listOf(
-            Pair(40.822583, 29.810823),
-            Pair(40.822367, 29.810067),
-            Pair(40.820559, 29.806401),
-            Pair(40.819794, 29.805169),
-            Pair(40.819122, 29.804325),
-            Pair(40.818235, 29.803148),
-            Pair(40.817903, 29.802289),
-            Pair(40.817439, 29.801303),
-            Pair(40.816981, 29.800312),
-            Pair(40.816527, 29.799335),
-            Pair(40.816071, 29.798359),
-            Pair(40.815611, 29.797381),
-            Pair(40.815152, 29.796404),
-            Pair(40.814696, 29.795426),
-            Pair(40.814238, 29.794449),
-            Pair(40.813779, 29.793472),
-            Pair(40.813322, 29.792494),
-            Pair(40.812864, 29.791517),
-            Pair(40.812407, 29.790539),
-            Pair(40.811949, 29.789562)
+            Pair(40.8240889, 29.9209926),
+            Pair(40.8232829, 29.9251148),
+            Pair(40.8217259, 29.9338225),
+            Pair(40.813839, 29.9381805),
+            Pair(40.802867, 29.933484),
+            Pair(40.753435, 29.805417),
+            Pair(40.754958, 29.805794),
+            Pair(40.755174, 29.808015),
+            Pair(40.7536699, 29.8084591)
         )
 
-// Durakları ekleyeceğimiz listeyi başlat
-        val duraklar = mutableListOf<LatLng>()
 
-// Koordinatları kullanarak durakları ekleme
+// Durakları ekleyeceğimiz listeyi başlat
+        duraklar = mutableListOf()
+
+        // Koordinatları kullanarak durakları ekleme
         for ((lat, lng) in durakKoordinatlari) {
             val durak = LatLng(lat, lng)
             duraklar.add(durak)
-        } */
+        }
 
 
         // Mevcut konumu merkez olarak kullanarak 10 farklı durak konumu belirleme
         // daha sonra durak konumları bulunması halinde eklenecek
+        /*
         duraklar = mutableListOf() // duraklar listesini başlat
         val radius = 0.01 // Yaklaşık olarak 1 kilometrelik bir yarıçap
         val random = Random()
@@ -378,18 +412,19 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             val durak = LatLng(userLocation.latitude + latOffset, userLocation.longitude + lngOffset)
             duraklar.add(durak)
         }
+         */
 
         // Belirlenen her bir durak için bir işaretçi (marker) ekleme ve rengini ve simgesini özelleştirme
         for ((index, durak) in duraklar.withIndex()) {
             val durakMarker = MarkerOptions()
                 .position(durak)
                 .title("Durak ${index + 1}")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.bus_stop)) // İkonu bus_stop drawable'ı olarak ayarla
             mMap.addMarker(durakMarker)
         }
 
         // Kamera açısını ve yakınlaştırmayı ayarlama
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 13f))
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 17f))
     }
 
     override fun onMarkerClick(marker: Marker): Boolean {
@@ -409,7 +444,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         clearPolylines()
 
         // Toast mesajları ekle
-        Toast.makeText(applicationContext, "Yol bulma isteği oluşturuluyor...", Toast.LENGTH_SHORT).show()
+        //Toast.makeText(applicationContext, "Yol bulma isteği oluşturuluyor...", Toast.LENGTH_SHORT).show()
 
         // Yol bulma isteği oluştur
         val url = getDirectionsUrl(startPoint, endPoint)
@@ -480,6 +515,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
     private inner class ParserTask : AsyncTask<String, Int, List<LatLng>>() {
 
+        @SuppressLint("MissingPermission")
         override fun doInBackground(vararg jsonData: String): List<LatLng> {
             val routes: List<List<HashMap<String, String>>>
             val path: ArrayList<LatLng> = ArrayList()
@@ -497,6 +533,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                         path.add(position)
                     }
                 }
+                // Hedef belirlenemedi, telefonu titret
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(800, VibrationEffect.EFFECT_TICK))
+                } else {
+                    vibrator.vibrate(800)
+                }
+
                 // TextToSpeech nesnesini oluştur ve sesli yönlendirmeyi başlat
                 tts = TextToSpeech(applicationContext) { status ->
                     if (status != TextToSpeech.ERROR) {
@@ -524,7 +568,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 val polylineOptions = PolylineOptions()
                     .addAll(result) // Yol noktalarını ekle
                     .color(Color.BLUE) // Rota rengini belirle
-                    .width(10f)       // Rota kalınlığını belirle
+                    .width(12f)       // Rota kalınlığını belirle
 
                 // Haritaya Polyline ekleyerek rotayı çiz
                 val polyline = mMap.addPolyline(polylineOptions)
@@ -555,128 +599,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
     }
 
 
-    fun extractManeuversFromDirections(context: Context, directionsUrl: String): Array<String> {
-        // Directions URL'sini kullanarak veriyi indir
-        val directionData = downloadUrl(directionsUrl)
-        val maneuvers = mutableListOf<String>()
 
-        if (directionData.isNotEmpty()) {
-            // Veri başarıyla indirildiyse
-            try {
-                val jsonObject = JSONObject(directionData)
-                val routesArray = jsonObject.getJSONArray("routes")
-                if (routesArray.length() > 0) {
-                    val routeObject = routesArray.getJSONObject(0)
-                    val legsArray = routeObject.getJSONArray("legs")
-                    if (legsArray.length() > 0) {
-                        val legObject = legsArray.getJSONObject(0)
-                        val stepsArray = legObject.getJSONArray("steps")
-
-                        for (i in 0 until stepsArray.length()) {
-                            val stepObject = stepsArray.getJSONObject(i)
-                            val maneuver = stepObject.optString("maneuver")
-                            if (maneuver.isNotEmpty()) {
-                                maneuvers.add(maneuver)
-                            }
-                        }
-                    } else {
-                        Toast.makeText(context, "Legs bulunamadı.", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    Toast.makeText(context, "Rota bulunamadı.", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: JSONException) {
-                e.printStackTrace()
-                Toast.makeText(context, "JSON parsing hatası: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        } else {
-            Toast.makeText(context, "Veri indirilemedi.", Toast.LENGTH_SHORT).show()
-        }
-
-        // Manevraları diziye dön
-        return maneuvers.toTypedArray()
-    }
-
-    fun downloadUrl(directionsUrl: String): String {
-        val result = StringBuilder()
-        var connection: HttpURLConnection? = null
-        try {
-            val url = URL(directionsUrl)
-            connection = url.openConnection() as HttpURLConnection
-            val reader = BufferedReader(InputStreamReader(connection.inputStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                result.append(line)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            connection?.disconnect()
-        }
-        return result.toString()
-    }
-
-
-
-    private fun textToSpeech(maneuvers: Array<String>) {
-        // TextToSpeech nesnesini oluştur
-        val tts = TextToSpeech(applicationContext) { status ->
-            if (status != TextToSpeech.ERROR) {
-                // Dil ayarını yap (opsiyonel)
-                tts.language = Locale.getDefault()
-
-                // Manevraları sesli olarak söyle
-                for (maneuver in maneuvers) {
-                    tts.speak(maneuver, TextToSpeech.QUEUE_ADD, null, null)
-                    // QUEUE_ADD: Sıraya ekler ve mevcut konuşmayı beklemez.
-                }
-            }
-        }
-    }
-
-    fun manevralarıToastlaYazdir(manevralar: Array<String>, context: Context) {
-        val message = if (manevralar.isEmpty()) {
-            "Manevralar bulunamadı."
-        } else {
-            "Manevralar bulundu."
-        }
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-    }
-
-
-
-
-    // Sınıf düzeyinde TextToSpeech nesnesini tanımlayın
-    private lateinit var tts: TextToSpeech
-
-    private fun provideNavigationInstructions(routePoints: List<LatLng>) {
-        // Yol tariflerini depolamak için bir liste oluştur
-        val instructions = mutableListOf<String>()
-
-        // Tüm rota noktaları boyunca döngü yap
-        for (i in 0 until routePoints.size - 1) {
-            val startPoint = routePoints[i]
-            val endPoint = routePoints[i + 1]
-
-            // Başlangıç ve bitiş noktaları arasındaki açı ve mesafeyi hesapla
-            val (angle, distance) = calculateAngleAndDistance(startPoint, endPoint)
-
-            // Açı ve mesafeye göre yönergeyi oluştur
-            val instruction = createInstruction(angle, distance)
-
-            // Yönergeyi listeye ekle
-            instructions.add(instruction)
-        }
-
-        // Tüm yönergeleri sesli olarak oku
-        instructions.forEachIndexed { index, instruction ->
-            // Tüm yönergelerin ardışık bir şekilde sesli olarak okunması için gecikme ekleyelim
-            val delay = index * 3000L // Her bir yönerge arasında 3 saniyelik bir gecikme ekleyelim
-            Handler(Looper.getMainLooper()).postDelayed({
-
-            }, delay)
-        }
-    }
 
 
     private fun calculateAngleAndDistance(startPoint: LatLng, endPoint: LatLng): Pair<Double, Double> {
