@@ -250,7 +250,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
         try {
             // Son bilinen konumu al
-            val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+
 
             // Konumu kontrol et ve kullan
             if (location != null) {
@@ -358,7 +359,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
         // Konum hizmetlerini kullanarak kullanıcının gerçek konumunu al
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        val location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
         val userLocation = if (location != null) {
             LatLng(location.latitude, location.longitude)
         } else {

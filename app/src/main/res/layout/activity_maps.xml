@@ -12,25 +12,25 @@
         android:layout_height="match_parent"
         tools:context=".MapsActivity" />
 
-    <!-- Hedef Şehir TextView -->
     <TextView
         android:id="@+id/targetTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="50dp"
         android:padding="16dp"
-        android:background="#AA000000"
+        android:background="#AA4CAF50"
         android:textColor="#ffffff"
         android:textSize="18sp"
         android:text="Hedef:" />
 
-    <!-- Mikrofon Butonu -->
+
     <Button
         android:id="@+id/micButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/targetTextView"
-        android:drawableLeft="@android:drawable/ic_btn_speak_now"
-        android:text="Konuş" />
+    android:drawableLeft="@android:drawable/ic_btn_speak_now"
+    android:text="Konuş" />
+
 </RelativeLayout>
