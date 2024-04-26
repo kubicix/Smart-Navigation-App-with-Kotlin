@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Criteria
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -342,11 +343,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                         // Mevcut kullanıcı marker'ını sil
                         userMarker?.remove()
 
-                        // Yeni kullanıcı marker'ını oluştur ve haritaya ekle
-                        userMarker = mMap.addMarker(MarkerOptions()
-                            .position(userLat)
-                            .title("Mevcut Konum")
-                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon)))
+                        // Mevcut konumu işaretle
+                        userMarker = mMap.addMarker(
+                            MarkerOptions()
+                                .position(userLat)
+                                .title("Mevcut Konum")
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon))
+                        )
 
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -364,7 +367,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
             // Tek bir konum güncellemesi almak için requestSingleUpdate yöntemini kullanın
             Toast.makeText(this, "Konum dinleme başlatıldı", Toast.LENGTH_SHORT).show()
-            locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, locationListener, null)
+            val criteria = Criteria()
+            criteria.accuracy = Criteria.ACCURACY_FINE // veya Criteria.ACCURACY_COARSE
+            criteria.isAltitudeRequired = false // Yükseklik bilgisi gerekli mi?
+            criteria.isBearingRequired = false // Yön bilgisi gerekli mi?
+            criteria.isSpeedRequired = false // Hız bilgisi gerekli mi?
+            criteria.powerRequirement = Criteria.POWER_HIGH// Güç gereksinimi (düşük, orta, yüksek)
+
+            locationManager.requestSingleUpdate(criteria, locationListener, null)
+
 
         } catch (e: SecurityException) {
             // Konum bilgisi alırken bir hata oluşursa
@@ -434,7 +445,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
 
         // Konum hizmetlerini kullanarak kullanıcının gerçek konumunu al
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        val location = locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
         val userLocation = if (location != null) {
             LatLng(location.latitude, location.longitude)
         } else {
@@ -443,10 +454,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         }
 
         // Mevcut konumu işaretle
-        userMarker = mMap.addMarker(MarkerOptions()
-            .position(userLocation)
-            .title("Mevcut Konum")
-            .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon))) // İkonu arrow_icon drawable'ı olarak ayarla
+        userMarker = mMap.addMarker(
+            MarkerOptions()
+                .position(userLocation)
+                .title("Mevcut Konum")
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon))
+        )
+
 
 
         //durak koordinatları bulunduktan sonra onları ekleyecek kod parçası
@@ -503,11 +517,75 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 17f))
     }
 
-
+    // Marker tıklaması sonucu konum tarifi
+    @SuppressLint("MissingPermission")
     override fun onMarkerClick(marker: Marker): Boolean {
+        // Konum yöneticisini oluştur
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         // Tıklanan işaretçi durak ise, kullanıcıya yönlendirme yap
         if (!marker.title.equals("Mevcut Konum", ignoreCase = true)) {
-            showNavigationDialog(marker.position)
+            // Mevcut konumu güncellemek için konum güncelleme isteği gönder
+            val criteria = Criteria()
+            criteria.accuracy = Criteria.ACCURACY_FINE // veya Criteria.ACCURACY_COARSE
+            criteria.isAltitudeRequired = false // Yükseklik bilgisi gerekli mi?
+            criteria.isBearingRequired = false // Yön bilgisi gerekli mi?
+            criteria.isSpeedRequired = false // Hız bilgisi gerekli mi?
+            criteria.powerRequirement = Criteria.POWER_HIGH// Güç gereksinimi (düşük, orta, yüksek)
+
+            // Konum güncellemelerini dinlemek için bir LocationListener oluştur
+            val locationListener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    // Konum güncellemesi alındığında işlenecek kodlar buraya gelecek
+                    try {
+                        Toast.makeText(this@MapsActivity, "Konum tespit edildi", Toast.LENGTH_SHORT).show()
+                        // Konumu kullan
+                        val userLocation = location
+                        baslangic = convertLocationToLatLng(userLocation)
+                        var nearestStop: LatLng? = null
+                        var shortestDistance = Double.MAX_VALUE
+
+                        // Tüm durakları dolaşarak en yakın olanı bul
+                        for (durak in duraklar) {
+                            val distance = calculateDistance(userLocation, durak)
+                            if (distance < shortestDistance) {
+                                shortestDistance = distance
+                                nearestStop = durak
+                            }
+                        }
+                        if (nearestStop != null) {
+                            bitis = nearestStop
+                        }
+                        val userLat = LatLng(location.latitude, location.longitude)
+
+                        drawRoute(userLat, marker.position)
+                        // Mevcut kullanıcı marker'ını sil
+                        userMarker?.remove()
+
+                        // Mevcut konumu işaretle
+                        userMarker = mMap.addMarker(
+                            MarkerOptions()
+                                .position(userLat)
+                                .title("Mevcut Konum")
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon))
+                        )
+
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+
+                override fun onProviderEnabled(provider: String) {}
+
+                override fun onProviderDisabled(provider: String) {
+                    Toast.makeText(this@MapsActivity, "Konum sağlayıcı devre dışı bırakıldı", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // Tek bir konum güncellemesi almak için requestSingleUpdate yöntemini kullanın
+            Toast.makeText(this, "Konum dinleme başlatıldı", Toast.LENGTH_SHORT).show()
+            locationManager.requestSingleUpdate(criteria, locationListener, null)
         }
         return false
     }
