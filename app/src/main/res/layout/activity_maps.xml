@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Harita Fragment'ı -->
+    <!-- Map Fragment -->
     <fragment
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
@@ -12,25 +12,43 @@
         android:layout_height="match_parent"
         tools:context=".MapsActivity" />
 
+    <!-- Target Text View -->
     <TextView
         android:id="@+id/targetTextView"
-        android:layout_width="wrap_content"
+        android:layout_width="130dp"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
-        android:layout_marginTop="50dp"
-        android:padding="16dp"
+        android:layout_marginTop="90dp"
+        android:padding="6dp"
         android:background="#AA4CAF50"
         android:textColor="#ffffff"
-        android:textSize="18sp"
-        android:text="Hedef:" />
+        android:textSize="16sp"
+        android:text="Hedef:"
+        android:gravity="center_horizontal"/>
 
-
+    <!-- Microphone Button -->
     <Button
         android:id="@+id/micButton"
-        android:layout_width="wrap_content"
+        android:layout_width="130dp"
         android:layout_height="wrap_content"
         android:layout_below="@id/targetTextView"
-    android:drawableLeft="@android:drawable/ic_btn_speak_now"
-    android:text="Konuş" />
+        android:textColor="#ffffff"
+        android:drawableLeft="@android:drawable/ic_btn_speak_now"
+        android:text="Konuş" />
+
+    <!-- Navigationtext -->
+    <TextView
+        android:id="@+id/directionsTextView"
+        android:layout_width="130dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/micButton"
+        android:layout_marginTop="4dp"
+        android:padding="6dp"
+        android:background="#AA4CAF50"
+        android:textColor="#ffffff"
+        android:textSize="12sp"
+        android:text="Yol Tarifi:"
+        android:gravity="center_horizontal" />
+
 
 </RelativeLayout>

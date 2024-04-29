@@ -37,8 +37,8 @@ class DirectionsJSONParser {
                     val maneuver = step.optString("html_instructions")
                     val distanceValue = step.optJSONObject("distance")?.optInt("value") // Adım mesafesini metre cinsinden al
                     if (distanceValue != null && maneuver.isNotEmpty()) {
-                        val cleanManeuver = maneuver.replace(Regex("<[^>]*>"), "") // HTML etiketlerini kaldırır
-                        val stepWithDistance = cleanManeuver.replace("ilerleyin", "") + " (ve $distanceValue metre ilerleyin)" // Adım mesafesini adım talimatına ekler
+                        val cleanManeuver = maneuver.replace(Regex("<[^>]*>"), " ") // HTML etiketlerini kaldırır
+                        val stepWithDistance = cleanManeuver.replace("ilerleyin", "") + " ve $distanceValue metre ilerleyin" // Adım mesafesini adım talimatına ekler
                         maneuvers.add(stepWithDistance)
                     }
 

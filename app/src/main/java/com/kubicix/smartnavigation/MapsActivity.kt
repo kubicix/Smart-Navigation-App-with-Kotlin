@@ -19,6 +19,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 
@@ -695,6 +696,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
                 } else {
                     vibrator.vibrate(800)
                 }
+
+                runOnUiThread {
+                    binding.directionsTextView.text = "Yol Tarifi:\n" // Başlangıç olarak "Yol Tarifi:" metnini ayarlayın
+
+                    // Manevraları tek tek ekle
+                    for (maneuver in maneuvers) {
+                        binding.directionsTextView.append("\n$maneuver") // Her manevrayı yeni satırlarla ekleyin
+                        binding.directionsTextView.append("\n----------------") // Satır ayrımı için pratik
+
+                    }
+                }
+
 
                 // TextToSpeech nesnesini oluştur ve sesli yönlendirmeyi başlat
                 tts = TextToSpeech(applicationContext) { status ->
