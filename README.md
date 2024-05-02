@@ -21,10 +21,10 @@ SmartNavigation is a mobile application developed to assist visually impaired in
 
 ## Technologies Used 🛠️
 
-- Kotlin: Android application development.
-- Android Speech Recognition API: For converting speech to text.
-- Google Maps API: Provides map functionality and navigation services.
-- Android Navigation Component: Facilitates navigation between different screens within the app.
+- Kotlin: Utilized for Android application development, offering a concise and expressive syntax.
+- Android Speech Recognition API: Integrated to transcribe spoken words into text, enhancing user interaction.
+- Google Maps API: Implemented to provide robust map functionalities and seamless navigation services.
+- Android Navigation Component: Employed to streamline navigation between various app screens, enhancing user experience and app flow.
 
 ## License 📄
 
