@@ -471,6 +471,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
             Pair(40.8232829, 29.9251148),
             Pair(40.8217259, 29.9338225),
             Pair(40.813839, 29.9381805),
+            Pair(40.7617012,29.9234567),
             Pair(40.802867, 29.933484),
             Pair(40.753435, 29.805417),
             Pair(40.754958, 29.805794),
@@ -627,7 +628,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         val mode = "mode=walking" // If you want walking directions, change to "mode=walking"
         val parameters = "$origin&$dest&$sensor&$mode"
         val output = "json"
-        val apiKey = "AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds" // Replace with your actual API key
+        val apiKey = "AIzaSyBDgcmevAqDJ423-zs2esluM01A3b_mW2o" // Replace with your actual API key
         return "https://maps.googleapis.com/maps/api/directions/$output?$parameters&language=tr&key=$apiKey"
     }
 
@@ -761,7 +762,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarker
         // Yol bulma isteğinin URL'sini oluştur
         val origin = "origin=${startPoint.latitude},${startPoint.longitude}"
         val destination = "destination=${endPoint.latitude},${endPoint.longitude}"
-        val apiKey = "key=AIzaSyCWpfXDLACO7rEPQW_drXBRcPGarKKmUds" // API anahtarınızı buraya ekleyin
+        val apiKey = "key=AIzaSyBDgcmevAqDJ423-zs2esluM01A3b_mW2o" // API anahtarınızı buraya ekleyin
 
         return "https://maps.googleapis.com/maps/api/directions/json?$origin&$destination&$apiKey"
     }
