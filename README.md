@@ -26,6 +26,11 @@ SmartNavigation is a mobile application developed to assist visually impaired in
 - Google Maps API: Implemented to provide robust map functionalities and seamless navigation services.
 - Android Navigation Component: Employed to streamline navigation between various app screens, enhancing user experience and app flow.
 
+## Screenshots 📸
+![SS1](https://github.com/kubicix/Smart-Navigation-App-with-Kotlin/assets/96316375/6e54ef17-d125-4d1c-8107-3e81447fac71)
+![SS2](https://github.com/kubicix/Smart-Navigation-App-with-Kotlin/assets/96316375/4788bccb-4269-4e07-975c-6b3dcf5f1271)
+
+
 ## License 📄
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
